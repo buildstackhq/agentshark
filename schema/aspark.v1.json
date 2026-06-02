@@ -1,0 +1,199 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentshark.dev/schema/aspark.v1.json",
+  "title": "agentshark portable trace (.aspark) v1",
+  "description": "Versioned JSON schema for a single exported agent session. Used by `agentshark export`, `agentshark --replay`, and as a bug-report attachment format. Locked: changes require a major version bump (.aspark v2).",
+  "type": "object",
+  "required": [
+    "asparkVersion",
+    "exportedAt",
+    "exportedBy",
+    "redaction",
+    "session",
+    "events"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "asparkVersion": {
+      "const": 1,
+      "description": "Schema version. Bumped on breaking changes."
+    },
+    "exportedAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp of when this file was produced."
+    },
+    "exportedBy": {
+      "type": "string",
+      "description": "Tool + version that produced the file, e.g. 'agentshark@0.1.2'."
+    },
+    "redaction": {
+      "type": "object",
+      "description": "Summary of redaction that was applied before export. Required so a viewer can disclose what was scrubbed.",
+      "required": ["policy", "patternsApplied", "matchCount"],
+      "additionalProperties": false,
+      "properties": {
+        "policy": {
+          "type": "string",
+          "enum": ["default", "strict", "custom"],
+          "description": "Built-in redaction policy name. 'custom' indicates the user supplied a .agentshark-redact config."
+        },
+        "patternsApplied": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Names of pattern matchers that ran (e.g. 'aws_access_key_id', 'jwt', 'env_token')."
+        },
+        "matchCount": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total number of redaction substitutions performed."
+        },
+        "customPatterns": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Project-specific regex patterns, if any, sourced from .agentshark-redact."
+        }
+      }
+    },
+    "session": {
+      "type": "object",
+      "description": "Metadata about the single agent session this trace represents.",
+      "required": ["label", "agent", "source"],
+      "additionalProperties": false,
+      "properties": {
+        "label": {
+          "type": "string",
+          "description": "Human-readable label, e.g. 'claude-code · ht/prd'."
+        },
+        "agent": {
+          "type": "string",
+          "description": "Adapter or SDK label, e.g. 'claude-code', 'langgraph/orchestrator'."
+        },
+        "source": {
+          "type": "string",
+          "enum": ["claude-code", "codex", "cursor", "gemini-cli", "copilot-cli", "generic"],
+          "description": "Where the events came from."
+        },
+        "model": {
+          "type": "string",
+          "description": "Last observed model, e.g. 'claude-sonnet-4-6'."
+        },
+        "host": {
+          "type": "string",
+          "description": "'local' for all file-tailed sessions."
+        },
+        "project": {
+          "type": "string",
+          "description": "Project directory or repo identifier."
+        },
+        "startedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "endedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "totals": {
+          "type": "object",
+          "description": "Pre-aggregated session totals for quick rendering.",
+          "additionalProperties": false,
+          "properties": {
+            "assistantTurns": { "type": "integer", "minimum": 0 },
+            "billedInputTokens": { "type": "integer", "minimum": 0 },
+            "cacheReadInputTokens": { "type": "integer", "minimum": 0 },
+            "cacheCreationInputTokens": { "type": "integer", "minimum": 0 },
+            "outputTokens": { "type": "integer", "minimum": 0 }
+          }
+        }
+      }
+    },
+    "events": {
+      "type": "array",
+      "description": "Chronologically-ordered normalised event stream.",
+      "items": { "$ref": "#/$defs/Event" }
+    }
+  },
+  "$defs": {
+    "Event": {
+      "type": "object",
+      "required": ["ts", "spanId", "source", "type"],
+      "additionalProperties": false,
+      "properties": {
+        "ts": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO 8601 timestamp with millisecond precision."
+        },
+        "traceId": {
+          "type": "string",
+          "description": "Multi-agent run identifier. Session UUID for this session."
+        },
+        "spanId": {
+          "type": "string",
+          "description": "Unique identifier for this event within the trace."
+        },
+        "parentSpanId": {
+          "type": "string",
+          "description": "If this event is nested (e.g. sub-agent inside orchestrator), the parent span's id."
+        },
+        "sessionLabel": { "type": "string" },
+        "source": {
+          "type": "string",
+          "enum": ["claude-code", "codex", "cursor", "gemini-cli", "copilot-cli", "generic"]
+        },
+        "agent": { "type": "string" },
+        "model": { "type": "string" },
+        "type": {
+          "type": "string",
+          "enum": [
+            "message",
+            "tool_call",
+            "tool_result",
+            "mcp",
+            "hook",
+            "skill",
+            "system_reminder",
+            "subagent",
+            "agent_run",
+            "api_turn",
+            "cache",
+            "attachment"
+          ]
+        },
+        "subtype": {
+          "type": "string",
+          "description": "Type-specific specialiser, e.g. 'user'/'assistant' for message, 'pre_tool'/'post_tool' for hook."
+        },
+        "tokensIn": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Cache-aware input token attribution. Input only — output is reported per-turn on api_turn events."
+        },
+        "cacheState": {
+          "type": "string",
+          "enum": ["hit", "write", "none"],
+          "description": "Cache classification for the bucket this event was attributed to."
+        },
+        "durationApproxMs": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Duration in milliseconds. Real for SDK-emitted events; approximate (derived from consecutive entry timestamps) for file-tailed events."
+        },
+        "payload": {
+          "description": "Full event-specific payload after redaction. Shape varies by type. NEVER carries unredacted secret content.",
+          "type": ["object", "string", "null"]
+        },
+        "tags": {
+          "type": "object",
+          "description": "Arbitrary string tags for filtering (mcp_server, hook_name, tool_name, file_path, host, env, ...).",
+          "additionalProperties": { "type": "string" }
+        },
+        "category": {
+          "type": "string",
+          "description": "Internal category bucket used by the Context Composition view."
+        }
+      }
+    }
+  }
+}

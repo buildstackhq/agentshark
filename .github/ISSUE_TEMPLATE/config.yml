@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security policy
+    url: https://github.com/buildstackhq/agentshark/blob/main/SECURITY.md
+    about: Report vulnerabilities privately instead of opening a public issue.
+  - name: Contribution guide
+    url: https://github.com/buildstackhq/agentshark/blob/main/CONTRIBUTING.md
+    about: Read the local setup, testing, and PR checklist before opening a change.

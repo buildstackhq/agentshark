@@ -1,0 +1,29 @@
+node_modules/
+dist/
+*.log
+.DS_Store
+.env
+.env.local
+.env*.local
+*.aspark
+/tmp/
+
+# TypeScript build cache
+*.tsbuildinfo
+
+# Linting cache
+.eslintcache
+
+# Test coverage
+coverage/
+.nyc_output/
+
+# IDE / Editor
+.vscode/
+.idea/
+
+# Windows OS artifacts
+Thumbs.db
+
+# Claude Code local settings (personal/machine-specific overrides)
+.claude/settings.local.json

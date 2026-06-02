@@ -1,0 +1,57 @@
+{
+  "name": "agentshark",
+  "version": "0.0.1",
+  "description": "Wire shark + top for AI agents",
+  "type": "module",
+  "bin": {
+    "agentshark": "./bin/agentshark.js"
+  },
+  "files": [
+    "bin/",
+    "dist/",
+    "docs/"
+  ],
+  "scripts": {
+    "dev": "tsx src/cli.ts",
+    "build": "tsup src/cli.ts --format esm --outDir dist --dts --clean",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run typecheck && npm run build",
+    "smoke": "tsx scripts/smoke-test.ts",
+    "test:codex": "tsx src/adapters/codex.test.ts",
+    "test": "tsx scripts/smoke-test.ts",
+    "attribution-prototype": "tsx scripts/attribution-prototype.ts",
+    "find-sessions": "tsx scripts/find-test-sessions.ts",
+    "timestamp-resolution": "tsx scripts/timestamp-resolution.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/tokenizer": "^0.0.4",
+    "chokidar": "^3.6.0",
+    "ink": "^5.0.1",
+    "ink-text-input": "^6.0.0",
+    "meow": "^13.2.0",
+    "react": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/react": "^18.3.0",
+    "tsup": "^8.0.0",
+    "tsx": "^4.0.0",
+    "typescript": "^5.4.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/buildstackhq/agentshark.git"
+  },
+  "bugs": {
+    "url": "https://github.com/buildstackhq/agentshark/issues"
+  },
+  "homepage": "https://github.com/buildstackhq/agentshark#readme",
+  "keywords": ["ai", "agents", "observability", "tui", "claude", "llm", "mcp"],
+  "engines": {
+    "node": ">=20"
+  }
+}
