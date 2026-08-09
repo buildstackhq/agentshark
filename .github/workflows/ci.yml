@@ -38,13 +38,6 @@ jobs:
         if: github.event_name == 'pull_request'
         run: npx tsx scripts/check-commit-messages.ts "origin/${{ github.base_ref }}..HEAD"
 
-  dco:
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
       - name: Check DCO sign-off
-        uses: KineticCafe/actions-dco@v3.1.0
+        if: github.event_name == 'pull_request'
+        run: npx tsx scripts/check-dco.ts "origin/${{ github.base_ref }}..HEAD"
