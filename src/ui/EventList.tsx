@@ -1,12 +1,14 @@
 import React from 'react';
 import { Box, Text } from 'ink';
 import type { AgentEvent } from '../schema/event.js';
+import type { SortMode } from './sortMode.js';
 
 interface EventListProps {
   events: AgentEvent[];
   selectedIndex: number;
   height: number;
   originalIndices?: number[];
+  sortMode?: SortMode;
 }
 
 function formatTokens(n: number | undefined | null): string {
@@ -66,12 +68,18 @@ function typeColor(type: string): InkColor {
 }
 
 function cacheBadge(event: AgentEvent): 'H' | 'W' | ' ' {
+  // Prefer the per-event cacheState set during extraction (Gap 3); fall back
+  // to the legacy turn-level derivation for backwards compatibility with old
+  // fixtures / replays whose events predate the cacheState field.
+  if (event.cacheState === 'hit') return 'H';
+  if (event.cacheState === 'write') return 'W';
+  if (event.cacheState === 'none') return ' ';
   if (event.type === 'cache' && event.subtype === 'hit') return 'H';
   if (event.type === 'cache' && event.subtype === 'write') return 'W';
   return ' ';
 }
 
-export function EventList({ events, selectedIndex, height, originalIndices }: EventListProps) {
+export function EventList({ events, selectedIndex, height, originalIndices, sortMode }: EventListProps) {
   const usableHeight = Math.max(5, (height || 20) - 2);
   const half = Math.floor(usableHeight / 2);
   let start = Math.max(0, selectedIndex - half);
@@ -80,10 +88,15 @@ export function EventList({ events, selectedIndex, height, originalIndices }: Ev
   const view = events.slice(start, end);
   const pcts = React.useMemo(() => computePcts(events), [events]);
 
+  const stepArrow = sortMode === 'step-asc' ? '↑' : sortMode === 'step-desc' ? '↓' : '';
+  const tokArrow = sortMode === 'tok-desc' ? '↓' : sortMode === 'tok-asc' ? '↑' : '';
+  const stepLabel = `step${stepArrow}`.padEnd(7);
+  const tokLabel = `TOK${tokArrow}`.padEnd(7);
+
   return (
     <Box flexDirection="column">
       <Box>
-        <Text color="gray"> step   TIME      TYPE          SUBTYPE       TOK    %TOK   DETAIL</Text>
+        <Text color="gray"> {stepLabel}TIME      TYPE          SUBTYPE       {tokLabel}%TOK   DETAIL</Text>
       </Box>
       <Box>
         <Text color="gray">{''.padStart(43)}</Text>

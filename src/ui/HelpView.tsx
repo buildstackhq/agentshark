@@ -19,7 +19,7 @@ function TopHelp() {
   return (
     <>
       <Text bold color="white">COLUMNS</Text>
-      <Row label="AGENT    " desc="source adapter (claude-code, codex)" />
+      <Row label="AGENT    " desc="source adapter (claude-code, codex); `+N` suffix = this row spawned N sub-agents (press `s` to reveal them as `└─` rows directly beneath)" />
       <Row label="MODEL    " desc='last model used; "claude-" prefix stripped' />
       <Row label="PROJECT  " desc="project directory name" />
       <Row label="TURNS    " desc="number of assistant turns in session" />
@@ -31,7 +31,9 @@ function TopHelp() {
       </Box>
       <Row label="↑ ↓     " desc="navigate session list" />
       <Row label="⏎       " desc="inspect selected session" />
-      <Row label="e       " desc="export session → shareable .aspark with tool calls, context & token usage (secrets auto-redacted)" />
+      <Row label="s       " desc="show / hide sub-agent rows in this list (default: hidden)" />
+      <Row label="e       " desc="prepare export — shows redaction diff before any file is written" />
+      <Row label="y / n   " desc="confirm / abort the export (only shown after pressing e)" />
       <Row label="r       " desc="pause / resume auto-refresh" />
       <Row label="h       " desc="toggle this help" />
       <Row label="q       " desc="quit" />
@@ -65,6 +67,9 @@ function EventsHelp() {
         <Text color="greenBright">  H</Text>
         <Text color="gray"> — cache hit:  tokens served from cache (~90% cheaper than fresh input)</Text>
       </Box>
+      <Box>
+        <Text color="gray">    blank  — non-cached input · filter `cache:none`</Text>
+      </Box>
       <Box marginTop={1}>
         <Text bold color="white">COLUMNS</Text>
       </Box>
@@ -80,6 +85,9 @@ function EventsHelp() {
       <Row label="/        " desc="filter events" />
       <Row label="t        " desc="toggle tail / pause" />
       <Row label="c        " desc="toggle context composition view" />
+      <Row label="s        " desc="cycle sort: step ↑ / step ↓ / tok ↓ / tok ↑" />
+      <Row label=">        " desc="drill into a sub-agent of this session (repeat to cycle siblings)" />
+      <Row label="<        " desc="pop back to parent session" />
       <Row label="h        " desc="toggle this help" />
       <Row label="q        " desc="back to session list" />
     </>

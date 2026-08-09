@@ -11,6 +11,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:
@@ -26,5 +28,16 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Test
+        run: npm run test:fixtures && npm run test:unit
+
       # smoke test is skipped in CI — it requires real Claude Code sessions on disk (~/.claude/projects/)
       # run locally with: npm test
+
+      - name: Lint commit messages
+        if: github.event_name == 'pull_request'
+        run: npx tsx scripts/check-commit-messages.ts "origin/${{ github.base_ref }}..HEAD"
+
+      - name: Check DCO sign-off
+        if: github.event_name == 'pull_request'
+        run: npx tsx scripts/check-dco.ts "origin/${{ github.base_ref }}..HEAD"

@@ -7,9 +7,9 @@ import type { AgentEvent } from '../schema/event.js';
 //   and       := not ( AND not )*
 //   expr      := and ( OR and )*
 //
-// Keys: type, subtype, source, mcp, hook, trace, model, category
+// Keys: type, subtype, source, mcp, hook, trace, model, category, cache
 
-const KEYS = new Set(['type', 'subtype', 'source', 'mcp', 'hook', 'trace', 'model', 'category']);
+const KEYS = new Set(['type', 'subtype', 'source', 'mcp', 'hook', 'trace', 'model', 'category', 'cache']);
 
 type TokenType = '(' | ')' | 'AND' | 'OR' | 'NOT' | 'kv' | 'tokens' | 'regex';
 
@@ -129,6 +129,7 @@ function evalNode(node: ASTNode, event: AgentEvent): boolean {
         case 'trace':    return String(event.traceId || '').toLowerCase().startsWith(val);
         case 'model':    return String(event.model || '').toLowerCase().startsWith(val);
         case 'category': return String(event.category || '').toLowerCase().startsWith(val);
+        case 'cache':    return String(event.cacheState || '').toLowerCase().startsWith(val);
         default: return true;
       }
     }

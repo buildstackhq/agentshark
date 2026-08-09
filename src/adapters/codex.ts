@@ -9,9 +9,10 @@ import { promisify } from 'node:util';
 import { execFile } from 'node:child_process';
 import { basename, dirname, join, relative, sep } from 'node:path';
 import { homedir } from 'node:os';
-import type { SessionRef, SessionSummary } from './types.js';
+import type { SessionRef, SessionSummary, AdapterCapability } from './types.js';
 
 export const NAME = 'codex';
+export const CAPABILITIES: Set<AdapterCapability> = new Set(['discover', 'load', 'summary', 'cache']);
 const SESSIONS_DIR = join(homedir(), '.codex', 'sessions');
 const SQLITE_DB = join(homedir(), '.codex', 'logs_2.sqlite');
 const execFileAsync = promisify(execFile);

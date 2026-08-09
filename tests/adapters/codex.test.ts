@@ -1,9 +1,9 @@
 import { fileURLToPath } from 'node:url';
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { extractEvents } from '../extract/events.js';
-import type { SessionRef } from './types.js';
-import { loadSessionEntries, summarizeSession } from './codex.js';
+import { extractEvents } from '../../src/extract/events.js';
+import type { SessionRef } from '../../src/adapters/types.js';
+import { loadSessionEntries, summarizeSession } from '../../src/adapters/codex.js';
 
 const fixturePath = fileURLToPath(new URL('./fixtures/codex-normalization.jsonl', import.meta.url));
 

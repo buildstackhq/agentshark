@@ -9,9 +9,11 @@
 import { readdir, readFile, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
-import type { SessionRef, SessionSummary, LastUsage } from './types.js';
+import type { SessionRef, SessionSummary, LastUsage, AdapterCapability } from './types.js';
+import { sessionRegistry } from '../store/sessionRegistry.js';
 
 export const NAME = 'claude-code';
+export const CAPABILITIES: Set<AdapterCapability> = new Set(['discover', 'load', 'summary', 'cache']);
 const PROJECTS_DIR = join(homedir(), '.claude', 'projects');
 
 export async function detect(): Promise<boolean> {
@@ -36,8 +38,62 @@ function shortLabel(decodedPath: string): string {
   return parts[parts.length - 1] || decodedPath;
 }
 
+/**
+ * Walk `<project>/<parent-session>/subagents/agent-<id>.{jsonl,meta.json}`
+ * pairs and yield SessionRefs for each child plus register the parent→child
+ * link in the global session registry (Gap 6).
+ */
+async function discoverSubagents(
+  projectPath: string,
+  decoded: string,
+  parentSessionId: string,
+): Promise<SessionRef[]> {
+  const subagentsDir = join(projectPath, parentSessionId, 'subagents');
+  let entries;
+  try { entries = await readdir(subagentsDir, { withFileTypes: true }); }
+  catch { return []; }
+
+  const children: SessionRef[] = [];
+  for (const entry of entries) {
+    if (!entry.isFile() || !entry.name.endsWith('.jsonl')) continue;
+    const agentId = entry.name.replace(/^agent-/, '').replace(/\.jsonl$/, '');
+    const jsonlPath = join(subagentsDir, entry.name);
+    const metaPath = join(subagentsDir, `agent-${agentId}.meta.json`);
+
+    let stat_;
+    try { stat_ = await stat(jsonlPath); } catch { continue; }
+
+    let meta: { toolUseId?: string; agentType?: string; description?: string } | undefined;
+    try {
+      const metaRaw = await readFile(metaPath, 'utf8');
+      meta = JSON.parse(metaRaw);
+    } catch { /* meta is optional — children without it still surface */ }
+
+    const child: SessionRef = {
+      source: NAME,
+      id: `${parentSessionId}/${agentId}`,
+      jsonlPath,
+      projectDir: decoded,
+      projectLabel: `${shortLabel(decoded)} ↳ ${meta?.agentType ?? 'agent'}`,
+      lastActivity: stat_.mtime,
+      sizeBytes: stat_.size,
+      parentSessionId,
+      parentToolUseId: meta?.toolUseId,
+      agentType: meta?.agentType,
+    };
+
+    children.push(child);
+    sessionRegistry.recordChild(parentSessionId, meta?.toolUseId ?? '', child);
+  }
+  return children;
+}
+
 export async function discoverSessions({ limit = 50 } = {}): Promise<SessionRef[]> {
   if (!(await detect())) return [];
+  // Refresh the parent→child registry from scratch every discovery pass so
+  // stale entries from a previous run don't survive across refreshes.
+  sessionRegistry.clear();
+
   const projectDirs = await readdir(PROJECTS_DIR, { withFileTypes: true });
   const sessions: SessionRef[] = [];
   for (const pd of projectDirs) {
@@ -46,26 +102,63 @@ export async function discoverSessions({ limit = 50 } = {}): Promise<SessionRef[
     let entries;
     try { entries = await readdir(projectPath, { withFileTypes: true }); }
     catch { continue; }
+    const decoded = decodeProjectDir(pd.name);
     for (const e of entries) {
       if (!e.isFile() || !e.name.endsWith('.jsonl')) continue;
       const jsonlPath = join(projectPath, e.name);
       let s;
       try { s = await stat(jsonlPath); }
       catch { continue; }
-      const decoded = decodeProjectDir(pd.name);
+      const sessionId = e.name.replace(/\.jsonl$/, '');
       sessions.push({
         source: NAME,
-        id: e.name.replace(/\.jsonl$/, ''),
+        id: sessionId,
         jsonlPath,
         projectDir: decoded,
         projectLabel: shortLabel(decoded),
         lastActivity: s.mtime,
         sizeBytes: s.size,
       });
+      // Walk this session's subagents/ directory and add each child session
+      // to the result list, plus register the parent→child link.
+      const children = await discoverSubagents(projectPath, decoded, sessionId);
+      sessions.push(...children);
     }
   }
-  sessions.sort((a, b) => +b.lastActivity - +a.lastActivity);
-  return sessions.slice(0, limit);
+  return applyLimitKeepingFamilies(sessions, limit);
+}
+
+/**
+ * Apply `limit` to whole parent+children families, ranked by the family's
+ * most-recent activity (parent OR any child, whichever is freshest) — not by
+ * the parent's own lastActivity alone. Sorting the flat parent+child list
+ * together and slicing it can otherwise truncate a parent out while its
+ * more-recently-active children survive, leaving orphan child rows whose
+ * parent can't be found (App.tsx `<` navigation fails). A family with a
+ * currently-active sub-agent is itself active, even if the parent row is old.
+ */
+export function applyLimitKeepingFamilies(sessions: SessionRef[], limit: number): SessionRef[] {
+  const parents = sessions.filter(s => !s.parentSessionId);
+  const childrenByParent = new Map<string, SessionRef[]>();
+  for (const s of sessions) {
+    if (!s.parentSessionId) continue;
+    const list = childrenByParent.get(s.parentSessionId) ?? [];
+    list.push(s);
+    childrenByParent.set(s.parentSessionId, list);
+  }
+
+  const families = parents.map(parent => {
+    const kids = childrenByParent.get(parent.id) ?? [];
+    const familyActivity = kids.reduce(
+      (max, k) => (+k.lastActivity > max ? +k.lastActivity : max),
+      +parent.lastActivity,
+    );
+    return { parent, children: kids, familyActivity };
+  });
+  families.sort((a, b) => b.familyActivity - a.familyActivity);
+
+  const kept = families.slice(0, limit).flatMap(f => [f.parent, ...f.children]);
+  return kept.sort((a, b) => +b.lastActivity - +a.lastActivity);
 }
 
 export async function loadSessionEntries(sessionRef: SessionRef): Promise<unknown[]> {

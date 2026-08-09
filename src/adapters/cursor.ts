@@ -3,9 +3,14 @@
 import { readdir, readFile, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import { homedir, platform } from 'node:os';
-import type { SessionRef, SessionSummary } from './types.js';
+import type { SessionRef, SessionSummary, AdapterCapability } from './types.js';
 
 export const NAME = 'cursor';
+// Discovery only — Cursor's log format isn't yet decoded for token / cache /
+// turn counts. `summarizeSession` returns zeros; the UI will render those as
+// "—" so the empty cells read as "unsupported" not "broken". Track per-adapter
+// summary support as a roadmap item.
+export const CAPABILITIES: Set<AdapterCapability> = new Set(['discover', 'load']);
 
 function logsDir(): string {
   const p = platform();

@@ -3,9 +3,12 @@
 import { readdir, readFile, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
-import type { SessionRef, SessionSummary } from './types.js';
+import type { SessionRef, SessionSummary, AdapterCapability } from './types.js';
 
 export const NAME = 'copilot-cli';
+// Discovery only — Copilot CLI's response logs aren't yet decoded for token /
+// cache / turn counts. Tracked as roadmap.
+export const CAPABILITIES: Set<AdapterCapability> = new Set(['discover', 'load']);
 const CONFIG_DIR = join(homedir(), '.config', 'github-copilot');
 
 export async function detect(): Promise<boolean> {

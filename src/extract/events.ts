@@ -91,6 +91,44 @@ function shortText(s: string | undefined | null, max = 80): string {
   return flat.slice(0, max - 1) + '…';
 }
 
+/**
+ * Normalize Claude Code's CamelCase hookEvent values (PreToolUse, PostToolUse,
+ * UserPromptSubmit, Stop, …) to the snake_case form used in docs/guide.md and
+ * README ("hook:pre_tool", "hook:post_tool", "hook:user_prompt_submit",
+ * "hook:stop"). Lets the filter language match what users read in the docs.
+ */
+export function normalizeHookSubtype(hookEvent: string | undefined | null): string {
+  if (!hookEvent) return 'unknown';
+  // Explicit mapping for the four documented subtypes — README uses the short
+  // form (pre_tool / post_tool) rather than the full pre_tool_use / post_tool_use.
+  const explicit: Record<string, string> = {
+    PreToolUse: 'pre_tool',
+    PostToolUse: 'post_tool',
+    UserPromptSubmit: 'user_prompt_submit',
+    Stop: 'stop',
+  };
+  if (explicit[hookEvent]) return explicit[hookEvent];
+  // Fallback: CamelCase → snake_case (e.g. "SubagentStop" → "subagent_stop").
+  return hookEvent.replace(/([A-Z])/g, (_match, c, i) => (i === 0 ? c.toLowerCase() : `_${c.toLowerCase()}`));
+}
+
+/**
+ * Determine the predominant cache state of an `api_turn` from its `usage`.
+ * Used to tag every per-event emission inside that turn with a `cacheState`
+ * (Gap 3 — `docs/design.md` § 6 / § "Per-event cacheState").
+ *
+ * Heuristic:
+ *   - cache_read_input_tokens > 0  → 'hit'   (most of the input came from cache)
+ *   - cache_creation_input_tokens > 0 → 'write' (turn is writing new cache content)
+ *   - otherwise → 'none'
+ */
+function deriveTurnCacheState(usage: Record<string, number> | undefined): 'hit' | 'write' | 'none' {
+  if (!usage) return 'none';
+  if ((usage.cache_read_input_tokens ?? 0) > 0) return 'hit';
+  if ((usage.cache_creation_input_tokens ?? 0) > 0) return 'write';
+  return 'none';
+}
+
 export function extractEvents(entries: unknown[], sessionRef: SessionRef): AgentEvent[] {
   const events: AgentEvent[] = [];
   const seenReqs = new Map<string, number>();
@@ -98,6 +136,10 @@ export function extractEvents(entries: unknown[], sessionRef: SessionRef): Agent
   // Local counter — reset per call so spanIds are stable within a session load
   let localId = 0;
   const nextId = (prefix: string) => `${prefix}-${++localId}`;
+
+  // Track the most recent turn's predominant cache state so per-event emissions
+  // (tool_call, message, tool_result, mcp, hook) can be tagged with it.
+  let currentTurnCacheState: 'hit' | 'write' | 'none' = 'none';
 
   for (const raw of entries) {
     const e = raw as Record<string, unknown>;
@@ -107,6 +149,7 @@ export function extractEvents(entries: unknown[], sessionRef: SessionRef): Agent
       sessionLabel: `${sessionRef.source} · ${sessionRef.projectLabel}`,
       source: sessionRef.source,
       traceId: sessionRef.id,
+      cacheState: currentTurnCacheState,
       tags: {} as Record<string, string>,
     };
 
@@ -189,8 +232,13 @@ export function extractEvents(entries: unknown[], sessionRef: SessionRef): Agent
 
       if (firstSightingOfTurn) {
         seenReqs.set(reqId!, events.length);
+        // Update the running turn cache state so events that come AFTER this
+        // turn (tool_results on the next user message, etc.) inherit the
+        // most-recent turn's cache classification.
+        currentTurnCacheState = deriveTurnCacheState(usage);
         events.push({
           ...baseCtx,
+          cacheState: currentTurnCacheState,
           spanId: nextId('evt'),
           type: 'api_turn' as EventType,
           subtype: 'start',
@@ -210,6 +258,7 @@ export function extractEvents(entries: unknown[], sessionRef: SessionRef): Agent
           if (cw > 0) {
             events.push({
               ...baseCtx,
+              cacheState: 'write',
               spanId: nextId('evt'),
               type: 'cache' as EventType,
               subtype: 'write',
@@ -224,6 +273,7 @@ export function extractEvents(entries: unknown[], sessionRef: SessionRef): Agent
           if (cr > 0) {
             events.push({
               ...baseCtx,
+              cacheState: 'hit',
               spanId: nextId('evt'),
               type: 'cache' as EventType,
               subtype: 'hit',
@@ -244,6 +294,7 @@ export function extractEvents(entries: unknown[], sessionRef: SessionRef): Agent
           if (block.type === 'thinking' && block.thinking) {
             events.push({
               ...baseCtx,
+              cacheState: currentTurnCacheState,
               spanId: nextId('evt'),
               type: 'message' as EventType,
               subtype: 'thinking',
@@ -257,6 +308,7 @@ export function extractEvents(entries: unknown[], sessionRef: SessionRef): Agent
           } else if (block.type === 'text' && block.text) {
             events.push({
               ...baseCtx,
+              cacheState: currentTurnCacheState,
               spanId: nextId('evt'),
               type: 'message' as EventType,
               subtype: 'assistant',
@@ -278,6 +330,7 @@ export function extractEvents(entries: unknown[], sessionRef: SessionRef): Agent
             if (mcp) {
               events.push({
                 ...baseCtx,
+                cacheState: currentTurnCacheState,
                 spanId: nextId('evt'),
                 type: 'mcp' as EventType,
                 subtype: 'request',
@@ -293,6 +346,7 @@ export function extractEvents(entries: unknown[], sessionRef: SessionRef): Agent
               const eventType = subtype === 'subagent' ? 'subagent' : 'tool_call';
               events.push({
                 ...baseCtx,
+                cacheState: currentTurnCacheState,
                 spanId: nextId('evt'),
                 type: eventType as EventType,
                 subtype,
@@ -332,11 +386,12 @@ export function extractEvents(entries: unknown[], sessionRef: SessionRef): Agent
       switch (att.type) {
         case 'hook_success':
         case 'hook_error': {
+          const normalizedSubtype = normalizeHookSubtype(att.hookEvent as string | undefined);
           events.push({
             ...baseCtx,
             spanId: nextId('evt'),
             type: 'hook' as EventType,
-            subtype: ((att.hookEvent as string) || 'unknown').toLowerCase(),
+            subtype: normalizedSubtype,
             tokensIn: 0,
             durationApproxMs: typeof att.durationMs === 'number' ? att.durationMs : undefined,
             detail: `${att.hookName || 'hook'} → exit ${att.exitCode ?? '?'}`,
@@ -351,7 +406,10 @@ export function extractEvents(entries: unknown[], sessionRef: SessionRef): Agent
             },
             tags: {
               hook_name: (att.hookName as string) || '',
-              hook_event: (att.hookEvent as string) || '',
+              // Keep the raw CamelCase too for full-fidelity payload inspection,
+              // but the user-facing filter key matches the snake_case subtype.
+              hook_event: normalizedSubtype,
+              hook_event_raw: (att.hookEvent as string) || '',
               tool_use_id: (att.toolUseID as string) || '',
               outcome: att.type === 'hook_success' ? 'success' : 'error',
             },
