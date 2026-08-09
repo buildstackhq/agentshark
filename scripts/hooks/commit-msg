@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+# Enforces Conventional Commits (https://www.conventionalcommits.org/en/v1.0.0/)
+# and DCO sign-off (https://developercertificate.org/).
+# Installed via `core.hooksPath` — see package.json "prepare" script.
+# Local-only: CI re-checks both independently (scripts/check-commit-messages.ts,
+# dcoapp/dco action in .github/workflows/ci.yml) since this hook can be bypassed
+# with --no-verify. Keep the Conventional Commits regex in sync with that script.
+
+commit_msg_file="$1"
+first_line=$(head -n 1 "$commit_msg_file")
+
+# type(scope)!: description  — scope and ! are optional
+pattern='^(build|chore|ci|docs|feat|fix|perf|refactor|revert|style|test)(\([a-zA-Z0-9_-]+\))?!?: .+'
+
+if [[ "$first_line" =~ ^Merge ]]; then
+  exit 0
+fi
+
+if ! [[ "$first_line" =~ $pattern ]]; then
+  echo "commit-msg hook: commit message does not follow Conventional Commits" >&2
+  echo "  got:      \"$first_line\"" >&2
+  echo "  expected: <type>(<optional scope>): <description>" >&2
+  echo "  types:    build, chore, ci, docs, feat, fix, perf, refactor, revert, style, test" >&2
+  echo "  example:  fix(cli): reject unknown flags instead of ignoring them" >&2
+  echo "  see:      https://www.conventionalcommits.org/en/v1.0.0/" >&2
+  exit 1
+fi
+
+# Developer Certificate of Origin (https://developercertificate.org/) — every
+# commit must carry a Signed-off-by trailer matching the committer's git identity.
+if ! grep -qE '^Signed-off-by: .+ <.+>$' "$commit_msg_file"; then
+  echo "commit-msg hook: missing DCO sign-off" >&2
+  echo "  expected a trailer: Signed-off-by: Name <email>" >&2
+  echo "  fix: commit with -s, e.g. \`git commit -s -m \"...\"\`" >&2
+  echo "  see: https://developercertificate.org/" >&2
+  exit 1
+fi

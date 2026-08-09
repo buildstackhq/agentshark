@@ -62,7 +62,7 @@ agentshark/
 ├── schema/
 │   └── aspark.v1.json      # Versioned .aspark export format (JSON Schema)
 └── docs/
-    ├── cli.md              # Command & UI reference
+    ├── guide.md            # Command & UI reference
     ├── concepts.md         # Mental models for AI agent observability
     └── design.md           # Technical architecture
 ```
@@ -88,12 +88,12 @@ Must be updated when:
 - **Cache badge logic** (`cacheBadge` in `src/ui/EventList.tsx`) — badge character or subtype changes → update the `CACHE BADGES` section of `EventsHelp`
 - **Event list columns** (`src/ui/EventList.tsx` header row) — column added, removed, or renamed → update the `COLUMNS` section of `EventsHelp`
 
-### README, docs/cli.md, and CLI help string
+### README, docs/guide.md, and CLI help string
 
 Must be updated when:
-- **CLI commands or flags** (`src/cli.ts`) — command added, removed, renamed, or a flag changed → update the meow `Usage`/`Options` string, the quick-start block in `README.md`, and the relevant section in `docs/cli.md`
-- **Top-view keybindings** (`src/ui/App.tsx`) — key added, removed, or rebound → update the top-view keys table in `README.md` and `docs/cli.md`
-- **Inspect-view keybindings** (`src/ui/App.tsx`) — key added, removed, or rebound → update the inspect-view keys table in `README.md` and `docs/cli.md`
+- **CLI commands or flags** (`src/cli.ts`) — command added, removed, renamed, or a flag changed → update the meow `Usage`/`Options` string, the quick-start block in `README.md`, and the relevant section in `docs/guide.md`
+- **Top-view keybindings** (`src/ui/App.tsx`) — key added, removed, or rebound → update the top-view keys table in `README.md` and `docs/guide.md`
+- **Inspect-view keybindings** (`src/ui/App.tsx`) — key added, removed, or rebound → update the inspect-view keys table in `README.md` and `docs/guide.md`
 
 Never leave any of these surfaces describing commands, keys, or event types that no longer exist, and never omit ones that were added.
 
@@ -115,6 +115,24 @@ docs(readme): add filter expression cheatsheet
 ```
 
 Types: `feat`, `fix`, `docs`, `refactor`, `test`, `chore`.
+
+## Sign your commits (DCO)
+
+Every commit must carry a `Signed-off-by:` trailer certifying the [Developer Certificate of Origin](https://developercertificate.org/) — your assertion that you wrote the change or otherwise have the right to submit it under the project's license.
+
+Add the trailer automatically with `-s`:
+
+```bash
+git commit -s -m "fix(cli): reject unknown flags instead of ignoring them"
+```
+
+or set it globally so you never forget:
+
+```bash
+git config --global format.signoff true
+```
+
+Both the local `commit-msg` hook (installed via `npm install`) and CI reject commits missing this trailer.
 
 ## Code of conduct
 

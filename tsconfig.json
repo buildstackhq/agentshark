@@ -9,11 +9,10 @@
     "esModuleInterop": true,
     "resolveJsonModule": true,
     "outDir": "./dist",
-    "rootDir": "./src",
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true
   },
-  "include": ["src/**/*"],
+  "include": ["src/**/*", "tests/**/*"],
   "exclude": ["node_modules", "dist", "scripts"]
 }

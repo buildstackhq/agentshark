@@ -110,13 +110,13 @@ Adapters produce these. The store keeps these. The UI renders these. Nothing els
 | `tool_call` | tool name (`read`, `edit`, `bash`, ...) | Assistant message `tool_use` content block |
 | `tool_result` | `success`, `error` | User message `tool_result` content block |
 | `mcp` | `request`, `response`, `error` | Tool name matches `mcp__<server>__<tool>` |
-| `hook` | `pre_tool`, `post_tool`, `user_prompt_submit`, `stop` | JSONL `hookEvent` entries |
-| `skill` | `loaded` | User message content matches `<command-name>...</command-name>` |
-| `system_reminder` | `injected` | Content block tagged `<system-reminder>` |
-| `subagent` | `spawned`, `returned` | `tool_use` with name `Agent` / `Task` |
-| `api_turn` | `start`, `end` | Each unique `requestId` |
-| `cache` | `write`, `hit`, `miss` | Deltas in `usage.cache_*` between consecutive turns |
-| `attachment` | — | File or binary attachment in a message content block |
+| `hook` | `pre_tool`, `post_tool`, `user_prompt_submit`, `stop` (normalized from CamelCase `PreToolUse` / `PostToolUse` / `UserPromptSubmit` / `Stop`) | Top-level `type:"attachment"` lines with `attachment.type` in `hook_success` / `hook_error` |
+| `skill` | `loaded`, `dynamic`, `listing` | User message `<command-name>` blocks; `attachment.type` in `skill_listing` / `dynamic_skill` |
+| `system_reminder` | `injected`, `task_reminder`, `nested_memory` | `<system-reminder>` content blocks; `attachment.type` in `task_reminder` / `nested_memory` |
+| `subagent` | `subagent` | `tool_use` with name `Agent` (parent's spawn record) |
+| `api_turn` | `start` | Each unique `requestId` on an assistant message |
+| `cache` | `write`, `hit` | Deltas in `usage.cache_creation_input_tokens` / `usage.cache_read_input_tokens` between turns |
+| `attachment` | the original `attachment.type` (e.g. `file`, `diagnostics`, `deferred_tools_delta`, …) | Fallback: any top-level `type:"attachment"` line whose `attachment.type` isn't routed to one of the more specific event types above. **Not** just file attachments — covers the whole catalog of Claude Code internal attachment events |
 
 Every extractor is required to **degrade gracefully**: if the format it's looking for has shifted (e.g. Anthropic renames `hookEvent` to `hook_event`), the event still surfaces as its parent type (`message`, `tool_call`) and never crashes the stream. That's enforced via try/catch around the subtype-specific code paths.
 
@@ -320,4 +320,4 @@ All local adapters (Codex, Cursor, Gemini CLI, Copilot CLI, Claude Cowork) are n
 
 ---
 
-Next: read `docs/cli.md` for what every command actually does in user-visible terms.
+Next: read `docs/guide.md` for what every command actually does in user-visible terms.

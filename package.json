@@ -1,6 +1,6 @@
 {
   "name": "agentshark",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Wire shark + top for AI agents",
   "type": "module",
   "bin": {
@@ -12,13 +12,17 @@
     "docs/"
   ],
   "scripts": {
+    "prepare": "git config core.hooksPath scripts/hooks",
     "dev": "tsx src/cli.ts",
     "build": "tsup src/cli.ts --format esm --outDir dist --dts --clean",
     "typecheck": "tsc --noEmit",
     "prepublishOnly": "npm run typecheck && npm run build",
     "smoke": "tsx scripts/smoke-test.ts",
-    "test:codex": "tsx src/adapters/codex.test.ts",
-    "test": "tsx scripts/smoke-test.ts",
+    "test:fixtures": "tsx scripts/check-fixtures.ts",
+    "test:unit": "node --import tsx --test tests/**/*.test.ts",
+    "test:codex": "tsx tests/adapters/codex.test.ts",
+    "test": "npm run test:fixtures && npm run test:unit && npm run smoke",
+    "scrub-session": "tsx scripts/scrub-session.ts",
     "attribution-prototype": "tsx scripts/attribution-prototype.ts",
     "find-sessions": "tsx scripts/find-test-sessions.ts",
     "timestamp-resolution": "tsx scripts/timestamp-resolution.ts"
@@ -32,8 +36,15 @@
     "react": "^18.3.1"
   },
   "devDependencies": {
+    "@semantic-release/changelog": "^6.0.3",
+    "@semantic-release/commit-analyzer": "^13.0.1",
+    "@semantic-release/git": "^10.0.1",
+    "@semantic-release/github": "^11.0.6",
+    "@semantic-release/npm": "^12.0.2",
+    "@semantic-release/release-notes-generator": "^14.1.1",
     "@types/node": "^22.0.0",
     "@types/react": "^18.3.0",
+    "semantic-release": "^24.2.9",
     "tsup": "^8.0.0",
     "tsx": "^4.0.0",
     "typescript": "^5.4.0"
@@ -50,7 +61,15 @@
     "url": "https://github.com/buildstackhq/agentshark/issues"
   },
   "homepage": "https://github.com/buildstackhq/agentshark#readme",
-  "keywords": ["ai", "agents", "observability", "tui", "claude", "llm", "mcp"],
+  "keywords": [
+    "ai",
+    "agents",
+    "observability",
+    "tui",
+    "claude",
+    "llm",
+    "mcp"
+  ],
   "engines": {
     "node": ">=20"
   }

@@ -16,10 +16,11 @@
 import { readdir, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
-import type { SessionRef } from './types.js';
+import type { SessionRef, AdapterCapability } from './types.js';
 export { loadSessionEntries, summarizeSession } from './claudeCode.js';
 
 export const NAME = 'claude-cowork';
+export const CAPABILITIES: Set<AdapterCapability> = new Set(['discover', 'load', 'summary', 'cache']);
 
 const BASE_DIR = join(homedir(), 'Library', 'Application Support', 'Claude', 'local-agent-mode-sessions');
 

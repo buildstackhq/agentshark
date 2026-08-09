@@ -3,9 +3,12 @@
 import { readdir, readFile, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
-import type { SessionRef, SessionSummary } from './types.js';
+import type { SessionRef, SessionSummary, AdapterCapability } from './types.js';
 
 export const NAME = 'gemini-cli';
+// Discovery only — Gemini CLI's session format isn't yet decoded for token /
+// cache / turn counts. Tracked as roadmap.
+export const CAPABILITIES: Set<AdapterCapability> = new Set(['discover', 'load']);
 const SESSIONS_DIR = join(homedir(), '.gemini', 'sessions');
 
 export async function detect(): Promise<boolean> {
