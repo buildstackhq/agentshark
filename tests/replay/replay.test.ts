@@ -35,7 +35,9 @@ test('loadReplay accepts a v2 file with children populated', async () => {
     const path = writeBundle(dir, 'v2.aspark', {
       asparkVersion: '2',
       exportedAt: '2026-01-01T00:00:00.000Z',
+      exportedBy: 'agentshark-tui',
       session: { id: 'parent', source: 'claude-code', projectLabel: 'demo', projectDir: '/x' },
+      redaction: { engine: 'agentshark-redact-v1', patternsApplied: ['api_key'] },
       events: [{ ts: '2026-01-01T00:00:00.000Z', type: 'message', detail: 'parent', tags: {}, category: 'message' }],
       children: [
         {
@@ -72,11 +74,31 @@ test('loadReplay rejects a malformed v2 file with a child missing events', async
   try {
     const path = writeBundle(dir, 'bad.aspark', {
       asparkVersion: '2',
+      exportedAt: '2026-01-01T00:00:00.000Z',
+      exportedBy: 'agentshark-tui',
+      session: { id: 'parent', source: 'claude-code', projectLabel: 'x', projectDir: '/x' },
+      redaction: { engine: 'agentshark-redact-v1', patternsApplied: [] },
+      events: [],
+      // Missing `events` (and most of `session`) on the child — schema violation.
+      children: [{ session: { id: 'orphan' } }],
+    });
+    await assert.rejects(() => loadReplay(path), /schema\/aspark\.v2\.json/);
+    await assert.rejects(() => loadReplay(path), /children\/0.*'events'/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('loadReplay rejects a v2 file missing required top-level fields (exportedBy, redaction)', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'replay-test-'));
+  try {
+    const path = writeBundle(dir, 'incomplete.aspark', {
+      asparkVersion: '2',
       session: { id: 'parent', source: 'claude-code', projectLabel: 'x', projectDir: '/x' },
       events: [],
-      children: [{ session: { id: 'orphan' } }],   // no events array
     });
-    await assert.rejects(() => loadReplay(path), /child session/i);
+    await assert.rejects(() => loadReplay(path), /'exportedBy'/);
+    await assert.rejects(() => loadReplay(path), /'redaction'/);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

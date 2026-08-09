@@ -338,7 +338,7 @@ agentshark inspect --replay trace.aspark
 - Walking through context bloat or cache miss patterns with the team
 - Filing a bug report with an MCP server author — attach the file directly
 
-The `.aspark` format is versioned. The current format is **v2** — adds a `children` array bundling sub-agent sessions and preserves the per-turn `turnUsage` field so the Context Composition view replays accurately. v1 files (single-session, no `children`) still load. The v1 reference schema is [`schema/aspark.v1.json`](schema/aspark.v1.json); the v2 shape is defined in [`src/export/pack.ts`](src/export/pack.ts).
+The `.aspark` format is versioned. The current format is **v2** — adds a `children` array bundling sub-agent sessions and preserves the per-turn `turnUsage` field so the Context Composition view replays accurately. v1 files (single-session, no `children`) still load. The v2 reference schema is [`schema/aspark.v2.json`](schema/aspark.v2.json), mirrored from [`src/export/pack.ts`](src/export/pack.ts); the legacy v1 schema is kept at [`schema/aspark.v1.json`](schema/aspark.v1.json) for reference. Both are validated against real export output in `tests/schema/aspark-schema.test.ts`.
 
 ---
 

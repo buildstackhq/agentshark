@@ -1,0 +1,172 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentshark.dev/schema/aspark.v2.json",
+  "title": "agentshark portable trace (.aspark) v2",
+  "description": "Versioned JSON schema for a session export produced by `agentshark export` and read by `agentshark inspect --replay`. Matches AsparkFile in src/export/pack.ts. v2 adds a 'children' array bundling sub-agent sessions and preserves per-turn 'turnUsage' on events. v1 files (no 'children') remain loadable by --replay; see schema/aspark.v1.json for that legacy shape.",
+  "type": "object",
+  "required": ["asparkVersion", "exportedAt", "exportedBy", "session", "redaction", "events"],
+  "additionalProperties": false,
+  "properties": {
+    "asparkVersion": {
+      "const": "2",
+      "description": "Schema version, as a string. Bumped on breaking changes."
+    },
+    "exportedAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp of when this file was produced."
+    },
+    "exportedBy": {
+      "type": "string",
+      "description": "Tool + version that produced the file, e.g. 'agentshark-tui'."
+    },
+    "session": { "$ref": "#/$defs/SessionRef" },
+    "redaction": {
+      "type": "object",
+      "description": "Summary of redaction applied before export.",
+      "required": ["engine", "patternsApplied"],
+      "additionalProperties": false,
+      "properties": {
+        "engine": {
+          "type": "string",
+          "description": "Redaction engine identifier, e.g. 'agentshark-redact-v1'."
+        },
+        "patternsApplied": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Names of pattern matchers that ran (e.g. 'api_key', 'jwt', 'secret')."
+        }
+      }
+    },
+    "events": {
+      "type": "array",
+      "description": "Chronologically-ordered event stream for the exported (parent) session.",
+      "items": { "$ref": "#/$defs/Event" }
+    },
+    "children": {
+      "type": "array",
+      "description": "Descendant sub-agent sessions bundled into this export, each with its own event stream. Omitted entirely for a single-session export.",
+      "items": { "$ref": "#/$defs/ChildSession" }
+    }
+  },
+  "$defs": {
+    "SessionRef": {
+      "type": "object",
+      "required": ["id", "source", "projectLabel", "projectDir"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string" },
+        "source": {
+          "type": "string",
+          "enum": ["claude-code", "codex", "cursor", "gemini-cli", "copilot-cli", "generic"]
+        },
+        "projectLabel": { "type": "string" },
+        "projectDir": { "type": "string" }
+      }
+    },
+    "ChildSession": {
+      "type": "object",
+      "required": ["session", "events"],
+      "additionalProperties": false,
+      "properties": {
+        "session": {
+          "type": "object",
+          "required": ["id", "source", "projectLabel", "projectDir", "parentSessionId"],
+          "additionalProperties": false,
+          "properties": {
+            "id": { "type": "string" },
+            "source": {
+              "type": "string",
+              "enum": ["claude-code", "codex", "cursor", "gemini-cli", "copilot-cli", "generic"]
+            },
+            "projectLabel": { "type": "string" },
+            "projectDir": { "type": "string" },
+            "parentSessionId": { "type": "string" },
+            "parentToolUseId": { "type": "string" },
+            "agentType": { "type": "string" }
+          }
+        },
+        "events": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Event" }
+        }
+      }
+    },
+    "Event": {
+      "type": "object",
+      "description": "Mirrors Partial<AgentEvent> from src/schema/event.ts. Fields marked required here are those `extractEvents` always populates; the type is a Partial so older/hand-built replay fixtures may omit them.",
+      "required": ["ts", "type", "detail", "tags", "category"],
+      "additionalProperties": false,
+      "properties": {
+        "ts": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO 8601 timestamp."
+        },
+        "traceId": {
+          "type": "string",
+          "description": "Session id this event belongs to."
+        },
+        "spanId": {
+          "type": "string",
+          "description": "Unique identifier for this event within the trace."
+        },
+        "parentSpanId": {
+          "type": "string",
+          "description": "If nested (e.g. sub-agent inside orchestrator), the parent span's id."
+        },
+        "source": {
+          "type": "string",
+          "enum": ["claude-code", "codex", "cursor", "gemini-cli", "copilot-cli", "generic"]
+        },
+        "sessionLabel": { "type": "string" },
+        "type": {
+          "type": "string",
+          "enum": [
+            "message",
+            "tool_call",
+            "tool_result",
+            "mcp",
+            "hook",
+            "skill",
+            "system_reminder",
+            "subagent",
+            "api_turn",
+            "cache",
+            "attachment"
+          ]
+        },
+        "subtype": {
+          "type": "string",
+          "description": "Type-specific specialiser, e.g. 'user'/'assistant' for message."
+        },
+        "tokensIn": { "type": "integer", "minimum": 0 },
+        "tokensOut": { "type": "integer", "minimum": 0 },
+        "model": { "type": "string" },
+        "detail": {
+          "type": "string",
+          "description": "Short human-readable summary shown in the event list."
+        },
+        "cacheState": {
+          "type": "string",
+          "enum": ["hit", "write", "none"]
+        },
+        "durationApproxMs": { "type": "integer", "minimum": 0 },
+        "payload": {
+          "description": "Full event-specific payload after redaction. NEVER carries unredacted secret content."
+        },
+        "tags": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "category": {
+          "type": "string",
+          "description": "Internal category bucket used by the Context Composition view."
+        },
+        "turnUsage": {
+          "description": "Per-turn usage object set on 'api_turn' events; preserved through export so Context Composition can be recomputed on replay."
+        }
+      }
+    }
+  }
+}

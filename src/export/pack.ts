@@ -7,6 +7,7 @@ import { loadSessionEntries } from '../adapters/index.js';
 import { extractEvents } from '../extract/events.js';
 import type { AgentEvent } from '../schema/event.js';
 import type { SessionRef } from '../adapters/types.js';
+import { validateAsparkV2 } from '../schema/validate.js';
 
 const ASPARK_VERSION = '2';
 const MAX_FAMILY_DEPTH = 8;
@@ -150,6 +151,11 @@ export function prepareExport(
  * lets callers (TUI / CLI) confirm the redaction diff before any file is written.
  */
 export async function writeExport(prepared: PreparedExport, outPath?: string): Promise<string> {
+  const { valid, errors } = validateAsparkV2(prepared.file);
+  if (!valid) {
+    throw new Error(`Refusing to write .aspark file: does not conform to schema/aspark.v2.json:\n${errors.join('\n')}`);
+  }
+
   const finalPath = outPath ?? prepared.defaultPath;
   await mkdir(dirname(finalPath), { recursive: true });
   await writeFile(finalPath, JSON.stringify(prepared.file, null, 2), 'utf8');

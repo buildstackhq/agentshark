@@ -252,7 +252,7 @@ Flow:
 
 `--yes` skips step 4. In a non-interactive shell (no TTY) without `--yes`, the command refuses and exits non-zero — never silently writes without consent.
 
-**Format**: the current schema is `.aspark` **v2** — adds a `children` array bundling sub-agent sessions and preserves the per-turn `turnUsage` field so the Context Composition view replays accurately. v1 files (single-session, no `children`) still load via `--replay`. Large families produce larger files (each child's full event stream is included) — for very deep trees, prefer exporting an inner subtree by selecting a sub-agent row in `top` and pressing `e`.
+**Format**: the current schema is `.aspark` **v2** ([`schema/aspark.v2.json`](../schema/aspark.v2.json)) — adds a `children` array bundling sub-agent sessions and preserves the per-turn `turnUsage` field so the Context Composition view replays accurately. v1 files (single-session, no `children`) still load via `--replay`; see [`schema/aspark.v1.json`](../schema/aspark.v1.json) for that legacy shape. Large families produce larger files (each child's full event stream is included) — for very deep trees, prefer exporting an inner subtree by selecting a sub-agent row in `top` and pressing `e`.
 
 ### `agentshark adapters`
 Lists every adapter, whether it detected anything on the local machine, and whether it produces token / cache summary data.
