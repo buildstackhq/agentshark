@@ -7,13 +7,17 @@ import { execFileSync } from "node:child_process";
 
 const SIGNED_OFF_BY = /^Signed-off-by: .+ <.+>$/m;
 
+// Scoped to the semantic-release bot's committer identity, not just the
+// subject line, so a human can't dodge sign-off by typing "chore(release): ...".
+const RELEASE_BOT_EMAIL = "41898282+github-actions[bot]@users.noreply.github.com";
+
 const range = process.argv[2];
 if (!range) {
   console.error("usage: check-dco.ts <git-range>  (e.g. origin/main..HEAD)");
   process.exit(2);
 }
 
-const log = execFileSync("git", ["log", "--format=%H%x1f%s%x1f%B%x1e", range], {
+const log = execFileSync("git", ["log", "--format=%H%x1f%s%x1f%ce%x1f%B%x1e", range], {
   encoding: "utf8",
 });
 
@@ -21,14 +25,15 @@ const commits = log
   .split("\x1e")
   .filter((entry) => entry.trim().length > 0)
   .map((entry) => {
-    const [sha, subject, body] = entry.replace(/^\n/, "").split("\x1f");
-    return { sha, subject, body };
+    const [sha, subject, committerEmail, body] = entry.replace(/^\n/, "").split("\x1f");
+    return { sha, subject, committerEmail, body };
   });
 
 let failed = false;
 
-for (const { sha, subject, body } of commits) {
+for (const { sha, subject, committerEmail, body } of commits) {
   if (/^Merge/.test(subject)) continue;
+  if (/^chore\(release\):/.test(subject) && committerEmail === RELEASE_BOT_EMAIL) continue;
   if (!SIGNED_OFF_BY.test(body)) {
     console.error(`✗ ${sha.slice(0, 7)}: "${subject}" is missing a DCO sign-off`);
     failed = true;

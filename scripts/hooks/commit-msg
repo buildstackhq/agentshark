@@ -12,6 +12,15 @@ first_line=$(head -n 1 "$commit_msg_file")
 # type(scope)!: description  — scope and ! are optional
 pattern='^(build|chore|ci|docs|feat|fix|perf|refactor|revert|style|test)(\([a-zA-Z0-9_-]+\))?!?: .+'
 
+# The semantic-release bot's release commits are exempt from DCO (see below) —
+# scoped to its committer identity, not just the subject line, so a human
+# can't dodge sign-off by typing "chore(release): ...".
+RELEASE_BOT_EMAIL="41898282+github-actions[bot]@users.noreply.github.com"
+is_release_bot_commit=0
+if [[ "$first_line" =~ ^chore\(release\): ]] && [[ "$(git config user.email)" == "$RELEASE_BOT_EMAIL" ]]; then
+  is_release_bot_commit=1
+fi
+
 if [[ "$first_line" =~ ^Merge ]]; then
   exit 0
 fi
@@ -28,7 +37,7 @@ fi
 
 # Developer Certificate of Origin (https://developercertificate.org/) — every
 # commit must carry a Signed-off-by trailer matching the committer's git identity.
-if ! grep -qE '^Signed-off-by: .+ <.+>$' "$commit_msg_file"; then
+if [[ "$is_release_bot_commit" -eq 0 ]] && ! grep -qE '^Signed-off-by: .+ <.+>$' "$commit_msg_file"; then
   echo "commit-msg hook: missing DCO sign-off" >&2
   echo "  expected a trailer: Signed-off-by: Name <email>" >&2
   echo "  fix: commit with -s, e.g. \`git commit -s -m \"...\"\`" >&2
